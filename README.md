@@ -24,10 +24,10 @@ Each part is self-contained and maps to one article in the series.
 | 2 | [`part2-freestanding-runtime/`](part2-freestanding-runtime/) | A libc-free Lua runtime injected into an already-compiled (non-PIE) binary. |
 | 3 | [`part3-aslr-stripped-multi/`](part3-aslr-stripped-multi/) | Self-relocation to survive ASLR; finding call sites through program headers on a stripped PIE; intercepting `printf` and `puts`. |
 
-Article links: *(to be filled in on publication)*
-- Part 1 — `[<PART1_URL>](https://medium.com/@ceballosyalba/the-function-you-called-isnt-the-function-that-ran-c3e61a874640)`
-- Part 2 — `[<PART2_URL>](https://medium.com/@ceballosyalba/a-runtime-with-no-libc-injected-into-a-finished-binary-8c6b055e7c08)`
-- Part 3 — `[<PART3_URL>](https://medium.com/@ceballosyalba/surviving-aslr-on-a-stripped-binary-59e7a040aab2)`
+Article links:
+- [Part 1 — The Function you Called Isn't The Function That Ran](https://medium.com/@ceballosyalba/the-function-you-called-isnt-the-function-that-ran-c3e61a874640)
+- [Part 2 — A Runtime With No libc Injected Into a Finished Binary](https://medium.com/@ceballosyalba/a-runtime-with-no-libc-injected-into-a-finished-binary-8c6b055e7c08)
+- [Part 3 — Surviving ASLR on a Stripped Binary](https://medium.com/@ceballosyalba/surviving-aslr-on-a-stripped-binary-59e7a040aab2)
 
 ## Environment
 

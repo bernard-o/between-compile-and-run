@@ -136,11 +136,14 @@ static int utoa(unsigned long long v,unsigned base,int upper,char*out){
     if(v==0)tmp[i++]='0'; while(v){ tmp[i++]=dig[v%base]; v/=base; }
     for(int j=0;j<i;j++)out[j]=tmp[i-1-j]; return i;
 }
-/* format a double as %f with 'prec' decimals; returns length in out (sign handled by caller) */
+/* format a double as %f with 'prec' decimals; returns length in out (sign handled by caller).
+ * NOTE: rounds half-up. glibc rounds half-to-even from the exact binary value, which
+ * differs only at exact decimal halfway points (e.g. %.0f of 2.5 -> 2 in glibc, 3 here).
+ * Reproducing that needs big-integer decimal conversion (Ryu/gdtoa); out of scope here. */
 static int dtoa_f(double x,int prec,char*out){
     int n=0; if(prec<0)prec=6;
     double ip=floor(x); double frac=x-ip;
-    /* round the fraction */
+    /* round the fraction (half-up) */
     double scale=pow10i(prec); long long fi=(long long)(frac*scale+0.5);
     if(fi>=(long long)(scale+0.5)){ ip+=1; fi=0; }
     /* integer part */
@@ -150,16 +153,35 @@ static int dtoa_f(double x,int prec,char*out){
         for(int z=0;z<prec-fl;z++)out[n++]='0'; for(int j=0;j<fl;j++)out[n++]=fb[j]; }
     return n;
 }
-static int dtoa_g(double x,int prec,char*out){
+/* scientific notation: d.ddddde(+/-)XX, x>=0, 'prec' digits after the dot */
+static int dtoa_e(double x,int prec,int upper,char*out){
+    if(prec<0)prec=6;
+    int e=0; double a=x;
+    if(a!=0){ while(a>=10){a/=10;e++;} while(a<1){a*=10;e--;} }
+    double scale=pow10i(prec); long long mi=(long long)(a*scale+0.5);
+    if(mi>=(long long)(10*scale+0.5)){ mi=(long long)(scale+0.5); e++; } /* 9.99..->10 => 1.0, e+1 */
+    char digs[48]; int nd=utoa((unsigned long long)mi,10,0,digs);
+    int n=0; out[n++]=digs[0];
+    if(prec>0){ out[n++]='.'; for(int i=1;i<=prec;i++) out[n++]=(i<nd)?digs[i]:'0'; }
+    out[n++]= upper?'E':'e'; out[n++]= e<0?'-':'+';
+    int ea=e<0?-e:e; if(ea<10)out[n++]='0'; n+=utoa((unsigned)ea,10,0,out+n);
+    return n;
+}
+/* %g: %e or %f by exponent, trailing zeros stripped; 'upper' => E for %G */
+static int dtoa_g(double x,int prec,int upper,char*out){
     if(prec<=0)prec=1; if(x==0){ out[0]='0'; return 1; }
     int e=0; double a=x; while(a>=10){a/=10;e++;} while(a<1){a*=10;e--;}
-    if(e< -4 || e>=prec){ /* %e notation */
-        int n=0; char m[40]; int ml=dtoa_f(a,prec-1,m);
-        /* strip zeros */ while(ml>1 && m[ml-1]=='0')ml--; if(m[ml-1]=='.')ml--;
-        for(int j=0;j<ml;j++)out[n++]=m[j]; out[n++]='e'; out[n++]= e<0?'-':'+';
-        int ea=e<0?-e:e; if(ea<10)out[n++]='0'; n+=utoa((unsigned)ea,10,0,out+n); return n;
-    } else { int p=prec-1-e; if(p<0)p=0; int n=dtoa_f(x,p,out);
-        if(p>0){ while(n>1&&out[n-1]=='0')n--; if(out[n-1]=='.')n--; } return n; }
+    int n;
+    if(e< -4 || e>=prec){ /* %e form */
+        char tmp[64]; int tn=dtoa_e(x,prec-1,upper,tmp);
+        int ei=0; while(ei<tn && tmp[ei]!='e' && tmp[ei]!='E') ei++;
+        int m=ei; while(m>1 && tmp[m-1]=='0') m--; if(m>0&&tmp[m-1]=='.') m--;
+        n=0; for(int j=0;j<m;j++)out[n++]=tmp[j]; for(int j=ei;j<tn;j++)out[n++]=tmp[j];
+    } else { /* %f form */
+        int p=prec-1-e; if(p<0)p=0; n=dtoa_f(x,p,out);
+        if(p>0){ while(n>1&&out[n-1]=='0')n--; if(out[n-1]=='.')n--; }
+    }
+    return n;
 }
 
 int vsnprintf(char*buf,size_t cap,const char*fmt,va_list ap){
@@ -193,9 +215,9 @@ int vsnprintf(char*buf,size_t cap,const char*fmt,va_list ap){
             case 'f': case 'F':{ double d=va_arg(ap,double); if(d<0){sign='-';d=-d;} else sign=plus?'+':(space?' ':0);
                        tl=dtoa_f(d,prec,tmp); break; }
             case 'g': case 'G':{ double d=va_arg(ap,double); if(d<0){sign='-';d=-d;} else sign=plus?'+':(space?' ':0);
-                       tl=dtoa_g(d,prec<0?6:prec,tmp); break; }
+                       tl=dtoa_g(d,prec<0?6:prec,c=='G',tmp); break; }
             case 'e': case 'E':{ double d=va_arg(ap,double); if(d<0){sign='-';d=-d;} else sign=plus?'+':(space?' ':0);
-                       tl=dtoa_g(d,prec<0?7:prec+1,tmp); break; }
+                       tl=dtoa_e(d,prec<0?6:prec,c=='E',tmp); break; }
             default: tmp[tl++]='%'; tmp[tl++]=c; break;
         }
         int total=tl+(sign?1:0);

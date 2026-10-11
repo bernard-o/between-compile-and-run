@@ -109,10 +109,15 @@ int instr_printf(const char *fmt, ...){
         }
         if (!*p) break;
         char c = *p;
-        if (c=='d'||c=='i'||c=='o'||c=='u'||c=='x'||c=='X'){
+        if (c=='d'||c=='i'){   /* signed: read at the right width */
             long long v = (lng >= 2) ? va_arg(ap, long long)
                         : (lng == 1) ? (long long)va_arg(ap, long)
                                      : (long long)va_arg(ap, int);
+            lua_pushinteger(L, (lua_Integer)v); nargs++;
+        } else if (c=='o'||c=='u'||c=='x'||c=='X'){   /* unsigned: zero-extend at the right width */
+            unsigned long long v = (lng >= 2) ? va_arg(ap, unsigned long long)
+                        : (lng == 1) ? (unsigned long long)va_arg(ap, unsigned long)
+                                     : (unsigned long long)va_arg(ap, unsigned int);
             lua_pushinteger(L, (lua_Integer)v); nargs++;
         } else if (c=='c'){
             lua_pushinteger(L, va_arg(ap, int)); nargs++;
